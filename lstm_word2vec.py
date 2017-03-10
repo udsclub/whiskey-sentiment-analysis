@@ -6,7 +6,7 @@ suffix = str(datetime.now().strftime("%Y-%m-%d-%H-%M"))
 MODEL_NAME = "lstm_word2vec_" + suffix
 TRAIN_DATASETS = ["data/test_imdb.csv", "data/train_imdb.csv", "data/test_rt_en.csv", "data/train_rt_en.csv"]
 TOKENIZER_NAME = "lstm_word2vec_tokenizer_" + suffix
-WORD_TO_VEC_PATH = "GoogleNews-vectors-negative300.bin.gz"
+WORD_TO_VEC_PATH = "google.gz"
 
 RANDOM_SEED = 42
 
@@ -18,7 +18,7 @@ BIDIRECTIONAL = True
 EMBEDDING_DIM = 300
 DROPOUT_U = 0.2
 DROPOUT_W = 0.2
-DROPOUT_BEFORE_LSTM = 0.2
+DROPOUT_BEFORE_LSTM = 0
 DROPOUT_AFTER_LSTM = 0.2
 
 MAX_EPOCHES = 2
@@ -56,7 +56,7 @@ def load_data(data_files, test_size=0.1):
     for dataset in data_files:
         datasets.append(pd.read_csv(dataset, sep="|"))
     whole_data = pd.concat(datasets)
-    return train_test_split(whole_data, test_size=test_size)
+    return train_test_split(whole_data, test_size=test_size, random_state=RANDOM_SEED)
 
 train_data, test_data = load_data(TRAIN_DATASETS)
 print("Data loaded")

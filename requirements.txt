@@ -3,3 +3,4 @@ gensim
 keras
 scikit-learn
 nltk
+h5py
