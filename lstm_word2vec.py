@@ -6,7 +6,7 @@ suffix = str(datetime.now().strftime("%Y-%m-%d-%H-%M"))
 MODEL_NAME = "lstm_word2vec_" + suffix
 TRAIN_DATASETS = ["data/test_imdb.csv", "data/train_imdb.csv", "data/test_rt_en.csv", "data/train_rt_en.csv"]
 TOKENIZER_NAME = "lstm_word2vec_tokenizer_" + suffix
-WORD_TO_VEC_PATH = "../google.gz"
+WORD_TO_VEC_PATH = "GoogleNews-vectors-negative300.bin.gz"
 
 RANDOM_SEED = 42
 
@@ -21,7 +21,7 @@ DROPOUT_W = 0.2
 DROPOUT_BEFORE_LSTM = 0.2
 DROPOUT_AFTER_LSTM = 0.2
 
-MAX_EPOCHES = 50
+MAX_EPOCHES = 2
 BATCH_SIZE = 128
 
 
@@ -45,7 +45,7 @@ from keras.layers import LSTM, Bidirectional
 from keras.layers.embeddings import Embedding
 from keras.callbacks import ModelCheckpoint, TensorBoard, EarlyStopping
 
-from gensim.models import Word2Vec
+from gensim.models import KeyedVectors
 
 
 
@@ -114,18 +114,18 @@ print("Text tokenized")
 
 print("Get word2vec embeddings")
 
-word2vec_google = Word2Vec.load_word2vec_format(WORD_TO_VEC_PATH, binary=True)
+word2vec_google = KeyedVectors.load_word2vec_format(WORD_TO_VEC_PATH, binary=True)
 word2vec_google.init_sims(replace=True)
 print("Loaded")
 
 def get_embedding(word2vec_model, word):
     try:
-        return word2vec_model[word]
+        return word2vec_model.word_vec(word)
     except KeyError:
-        return np.zeros(word2vec_model.vector_size)
+        return np.zeros(word2vec_model.syn0norm.shape[1])
 
     
-embedding_weights_google = np.zeros((nb_words, word2vec_google.vector_size))
+embedding_weights_google = np.zeros((nb_words, word2vec_google.syn0norm.shape[1]))
 for word, i in word_index.items():
     if i >= MAX_NB_WORDS:
         continue
