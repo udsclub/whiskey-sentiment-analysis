@@ -21,7 +21,7 @@ DROPOUT_W = 0.2
 DROPOUT_BEFORE_LSTM = 0
 DROPOUT_AFTER_LSTM = 0.2
 
-MAX_EPOCHES = 2
+MAX_EPOCHES = 50
 BATCH_SIZE = 128
 
 
@@ -43,7 +43,7 @@ from keras.layers import Dense
 from keras.layers import Flatten, Dropout
 from keras.layers import LSTM, Bidirectional
 from keras.layers.embeddings import Embedding
-from keras.callbacks import ModelCheckpoint, TensorBoard, EarlyStopping
+from keras.callbacks import ModelCheckpoint, TensorBoard, EarlyStopping, CSVLogger
 
 from gensim.models import KeyedVectors
 
@@ -162,9 +162,10 @@ def create_model(pretrained_embedding_weights=None, bidirectional=False):
 model = create_model(embedding_weights_google, BIDIRECTIONAL)
 print("Model created")
 
-tensor_board = TensorBoard(log_dir='./logs', histogram_freq=0, write_graph=False, write_images=False)
-early_stopping = EarlyStopping(monitor='val_acc', min_delta=0, patience=3, verbose=0, mode='auto')
-model_checkpoint = ModelCheckpoint("models/%s.hdf5" % MODEL_NAME, monitor='val_acc', save_best_only=True, verbose=1)
+tensor_board = TensorBoard(log_dir='./logs/logs_{}'.format(MODEL_NAME), histogram_freq=0, write_graph=False, write_images=False)
+early_stopping = EarlyStopping(monitor='val_acc', min_delta=0, patience=4, verbose=0, mode='auto')
+model_checkpoint = ModelCheckpoint("models/%s.hdf5" % MODEL_NAME, monitor='val_acc', save_best_only=True, verbose=0)
+csv_logger = CSVLogger('training.log', append=False)
 
 ## Train
 
@@ -173,7 +174,7 @@ model.fit(x_train, y_train,
                          batch_size=BATCH_SIZE,
                          verbose=1,
                          validation_data=(x_test, y_test),
-                         callbacks=[tensor_board, early_stopping, model_checkpoint])
+                         callbacks=[tensor_board, early_stopping, model_checkpoint, csv_logger])
 
 # serialize model to JSON
 model_json = model.to_json()
