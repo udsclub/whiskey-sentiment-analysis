@@ -1,8 +1,12 @@
 # coding: utf-8
 
-MODEL_NAME = "lstm_word2vec"
+from datetime import datetime
+suffix = str(datetime.now().strftime("%Y-%m-%d-%H-%M"))
+
+MODEL_NAME = "lstm_word2vec_" + suffix
 TRAIN_DATASETS = ["data/test_imdb.csv", "data/train_imdb.csv", "data/test_rt_en.csv", "data/train_rt_en.csv"]
-TOKENIZER_NAME = "lstm_word2vec_tokenizer"
+TOKENIZER_NAME = "lstm_word2vec_tokenizer_" + suffix
+WORD_TO_VEC_PATH = "../google.gz"
 
 RANDOM_SEED = 42
 
@@ -17,7 +21,7 @@ DROPOUT_W = 0.2
 DROPOUT_BEFORE_LSTM = 0.2
 DROPOUT_AFTER_LSTM = 0.2
 
-MAX_EPOCHES = 2
+MAX_EPOCHES = 50
 BATCH_SIZE = 128
 
 
@@ -110,7 +114,7 @@ print("Text tokenized")
 
 print("Get word2vec embeddings")
 
-word2vec_google = Word2Vec.load_word2vec_format('GoogleNews-vectors-negative300.bin.gz', binary=True)
+word2vec_google = Word2Vec.load_word2vec_format(WORD_TO_VEC_PATH, binary=True)
 word2vec_google.init_sims(replace=True)
 print("Loaded")
 
