@@ -11,18 +11,18 @@ WORD_TO_VEC_PATH = "google.gz"
 RANDOM_SEED = 42
 
 MAX_NB_WORDS = 20000
-MAX_SEQUENCE_LENGTH = 70
+MAX_SEQUENCE_LENGTH = 100
 
 LSTM_DIM = 128
-BIDIRECTIONAL = True
+BIDIRECTIONAL = False
 EMBEDDING_DIM = 300
 DROPOUT_U = 0.2
 DROPOUT_W = 0.2
 DROPOUT_BEFORE_LSTM = 0
 DROPOUT_AFTER_LSTM = 0.2
 
-MAX_EPOCHES = 50
-BATCH_SIZE = 128
+MAX_EPOCHES = 100
+BATCH_SIZE = 2048
 
 
 import pickle
@@ -36,10 +36,12 @@ from nltk.tokenize import TweetTokenizer
 tweet_tokenizer = TweetTokenizer()
 
 from sklearn.model_selection import train_test_split
+from keras import initializations
+from keras import backend as K
 from keras.preprocessing.text import Tokenizer
 from keras.preprocessing.sequence import pad_sequences
 from keras.models import Sequential
-from keras.layers import Dense
+from keras.layers import Dense, Layer
 from keras.layers import Flatten, Dropout
 from keras.layers import LSTM, Bidirectional
 from keras.layers.embeddings import Embedding
@@ -137,6 +139,33 @@ print("Embeddings matrix created")
 
 ## Create model
 
+class Attention(Layer):
+    def __init__(self, **kwargs):
+        self.init = initializations.get('normal')
+        #self.input_spec = [InputSpec(ndim=3)]
+        super(Attention, self).__init__(** kwargs)
+
+    def build(self, input_shape):
+        print(input_shape)
+        assert len(input_shape)==3
+        #self.W = self.init((input_shape[-1],1))
+        self.W = self.init((input_shape[-1],))
+        #self.input_spec = [InputSpec(shape=input_shape)]
+        self.trainable_weights = [self.W]
+        super(Attention, self).build(input_shape)  # be sure you call this somewhere!
+
+    def call(self, x, mask=None):
+        eij = K.tanh(K.dot(x, self.W))
+
+        ai = K.exp(eij)
+        weights = ai/K.sum(ai, axis=1).dimshuffle(0,'x')
+
+        weighted_input = x*weights.dimshuffle(0,1,'x')
+        return weighted_input.sum(axis=1)
+
+    def get_output_shape_for(self, input_shape):
+        return (input_shape[0], input_shape[-1])
+
 def create_model(pretrained_embedding_weights=None, bidirectional=False):
     model = Sequential()
     if pretrained_embedding_weights is not None:
@@ -149,10 +178,11 @@ def create_model(pretrained_embedding_weights=None, bidirectional=False):
         model.add(Embedding(nb_words, EMBEDDING_DIM, input_length=MAX_SEQUENCE_LENGTH))
     model.add(Dropout(DROPOUT_BEFORE_LSTM))
     if bidirectional:
-        model.add(Bidirectional(LSTM(LSTM_DIM, dropout_U=DROPOUT_U, dropout_W=DROPOUT_W)))
+        model.add(Bidirectional(LSTM(LSTM_DIM, dropout_U=DROPOUT_U, dropout_W=DROPOUT_W, return_sequences=True)))
     else:
-        model.add(LSTM(LSTM_DIM, dropout_U=DROPOUT_U, dropout_W=DROPOUT_W))
+        model.add(LSTM(LSTM_DIM, dropout_U=DROPOUT_U, dropout_W=DROPOUT_W, return_sequences=True))
     model.add(Dropout(DROPOUT_AFTER_LSTM))
+    model.add(Attention())
     model.add(Dense(1, activation='sigmoid'))
     metrics=['accuracy', 'fmeasure', 'precision', 'recall']
     model.compile(loss='binary_crossentropy', optimizer='adam', metrics=metrics)
