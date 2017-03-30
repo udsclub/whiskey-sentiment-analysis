@@ -1,13 +1,9 @@
 # coding: utf-8
 
-from datetime import datetime
-
-suffix = str(datetime.now().strftime("%Y-%m-%d-%H-%M"))
-
-MODEL_NAME = "lstm_word2vec_" + suffix
+MODEL_NAME = "lstm_attn"
 TRAIN_DATASETS = ["data/test_imdb.csv", "data/train_imdb.csv", "data/test_rt_en.csv", "data/train_rt_en.csv"]
-TOKENIZER_NAME = "lstm_word2vec_tokenizer_" + suffix
-WORD_TO_VEC_PATH = "google.gz"
+WORD_TO_VEC_PATH = "GoogleNews-vectors-negative300.bin.gz"
+
 
 RANDOM_SEED = 42
 
@@ -27,6 +23,7 @@ MAX_EPOCHES = 100
 BATCH_SIZE = 2048
 
 import pickle
+import os
 
 import pandas as pd
 import numpy as np
@@ -50,6 +47,11 @@ from keras.layers.embeddings import Embedding
 from keras.callbacks import ModelCheckpoint, TensorBoard, EarlyStopping, CSVLogger
 
 from gensim.models import KeyedVectors
+
+## Create folder for model
+
+if not os.path.exists(MODEL_NAME):
+    os.makedirs(MODEL_NAME)
 
 
 ## Load data
@@ -103,7 +105,7 @@ word_index = tokenizer.word_index
 nb_words = min(MAX_NB_WORDS, len(word_index))
 print('Found %s unique tokens.' % len(word_index))
 
-with open(TOKENIZER_NAME, 'wb') as ofile:
+with open(MODEL_NAME + '/' + 'tokenizer', 'wb') as ofile:
     pickle.dump(tokenizer, ofile)
     ofile.close()
 
@@ -154,8 +156,8 @@ class AttentionLayer(Layer):
         self.init = initializations.get(init)
 
     def build(self, input_shape):
-        input_dim = input_shape[-1]
-        self.Uw = self.init((input_dim,))
+        self.Uw = self.init((input_shape[-1],))
+        self.b = self.init((input_shape[1],))
         self.trainable_weights = [self.Uw]
         super(AttentionLayer, self).build(input_shape)
 
@@ -163,7 +165,7 @@ class AttentionLayer(Layer):
         return mask
 
     def call(self, x, mask=None):
-        multData = K.exp(K.dot(x, self.Uw))
+        multData = K.exp(K.tanh(K.dot(x, self.Uw) + self.b))
         if mask is not None:
             multData = mask * multData
         output = multData / (K.sum(multData, axis=1) + K.epsilon())[:, None]
@@ -175,7 +177,7 @@ class AttentionLayer(Layer):
         return tuple(newShape)
 
 
-def create_model(pretrained_embedding_weights=None, bidirectional=False):
+def create_model(pretrained_embedding_weights=None):
     wordsInputs = Input(shape=(MAX_SEQUENCE_LENGTH,), dtype='int32', name='words_input')
     if pretrained_embedding_weights is None:
         emb = Embedding(nb_words, EMBEDDING_DIM, mask_zero=MASKING)(wordsInputs)
@@ -184,7 +186,7 @@ def create_model(pretrained_embedding_weights=None, bidirectional=False):
                         trainable=False)(wordsInputs)
     if DROPOUT_BEFORE_LSTM != 0.0:
         emb = Dropout(DROPOUT_BEFORE_LSTM)(emb)
-    if bidirectional:
+    if BIDIRECTIONAL:
         word_rnn = Bidirectional(LSTM(LSTM_DIM, dropout_U=DROPOUT_U, dropout_W=DROPOUT_W, return_sequences=True))(emb)
     else:
         word_rnn = LSTM(LSTM_DIM, dropout_U=DROPOUT_U, dropout_W=DROPOUT_W, return_sequences=True)(emb)
@@ -201,12 +203,12 @@ def create_model(pretrained_embedding_weights=None, bidirectional=False):
     return model
 
 
-model = create_model(embedding_weights_google, BIDIRECTIONAL)
+model = create_model(embedding_weights_google)
 print("Model created")
 
 # tensor_board = TensorBoard(log_dir='./logs/logs_{}'.format(MODEL_NAME), histogram_freq=0, write_graph=False, write_images=False)
 early_stopping = EarlyStopping(monitor='val_acc', min_delta=0, patience=4, verbose=0, mode='auto')
-model_checkpoint = ModelCheckpoint("models/%s.hdf5" % MODEL_NAME, monitor='val_acc', save_best_only=True, verbose=0)
+model_checkpoint = ModelCheckpoint(MODEL_NAME + '/' + 'weights.hdf5', monitor='val_acc', save_best_only=True, verbose=0)
 csv_logger = CSVLogger('training.log', append=False)
 
 ## Train
@@ -220,6 +222,6 @@ model.fit(x_train, y_train,
 
 # serialize model to JSON
 model_json = model.to_json()
-with open(MODEL_NAME + ".json", "w") as json_file:
+with open(MODEL_NAME + '/' + 'structure.json', "w") as json_file:
     json_file.write(model_json)
 print("Model saved")
